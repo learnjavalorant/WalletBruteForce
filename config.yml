@@ -1,6 +1,6 @@
-sendWebhook: true
 batchSize: 10
 rateLimit: 5
+sendWebhook: true
 rpclist:
   - "https://mainnet.infura.io/v3/xxx"
   - "https://mainnet.infura.io/v3/xxx"
