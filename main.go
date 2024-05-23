@@ -32,6 +32,11 @@ type Config struct {
 	SendWebhook bool     `yaml:"sendWebhook"`
 	Log0Wallet  bool     `yaml:"Log0Wallets"`
 }
+
+var (
+	config Config
+)
+
 type WebhookData struct {
 	Content string         `json:"content"`
 	Embeds  []WebhookEmbed `json:"embeds"`
@@ -320,13 +325,16 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) er
 				fmt.Println("Failed to write to result file:", err)
 				return err
 			}
-			executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
-
+			if config.SendWebhook {
+				err := executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+				if err != nil {
+					fmt.Println("Failed to send webhook:", err)
+				}
+			}
 		} else {
 			entry := fmt.Sprintf("❌ %s | %s\n", addresses[i], FormatBalance)
 			fmt.Print(entry)
-			var Log = false
-			if Log {
+			if config.Log0Wallet {
 				file, err := os.OpenFile("0wallets.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 				if err != nil {
 					fmt.Println("Failed to open 0wallets file:", err)
@@ -338,7 +346,9 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) er
 					fmt.Println("Failed to write to 0wallets file:", err)
 					return err
 				}
-				//executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+				if config.SendWebhook {
+					executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+				}
 			}
 		}
 		totalChecked++
