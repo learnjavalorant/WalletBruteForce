@@ -281,7 +281,10 @@ func checkBalances(client *rpc.Client, addresses []string) ([]*big.Float, error)
 
 	return balances, nil
 }
-
+func FormatBalance(balance *big.Float) string {
+	balanceStr := balance.Text('f', 18)
+	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
+}
 func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, config Config) error {
 	providerURL := RandomProvider(apiKeys, currentProviderIndex)
 	client, err := rpc.DialContext(context.Background(), providerURL)
@@ -301,12 +304,22 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 	}
 
 	for i, balance := range balances {
+		FormatBalance := FormatBalance(balance)
 		if balance.Cmp(big.NewFloat(0)) > 0 {
-			entry := fmt.Sprintf("✅ %s | %s | %s\n", addresses[i], balance.String(), mnemonics[i])
+			entry := fmt.Sprintf("✅ %s | %s | %s\n", addresses[i], FormatBalance, mnemonics[i])
 			fmt.Print(entry)
-			if err := ioutil.WriteFile("result.txt", []byte(entry), os.ModeAppend); err != nil {
+			file, err := os.OpenFile("result.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			if err != nil {
+				fmt.Println("Failed to open file:", err)
 				return err
 			}
+			defer file.Close()
+
+			if _, err := file.WriteString(entry); err != nil {
+				fmt.Println("Failed to write to file:", err)
+				return err
+			}
+
 			if config.SendWebhook {
 				err := executeWebhookForWallet(addresses[i], balance.String(), mnemonics[i], privateKeys[i])
 				if err != nil {
