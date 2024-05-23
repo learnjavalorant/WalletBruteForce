@@ -346,9 +346,6 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) er
 					fmt.Println("Failed to write to 0wallets file:", err)
 					return err
 				}
-				if config.SendWebhook {
-					executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
-				}
 			}
 		}
 		totalChecked++
