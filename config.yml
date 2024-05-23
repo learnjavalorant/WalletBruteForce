@@ -1,8 +1,7 @@
+sendWebhook: true
 batchSize: 10
 rateLimit: 5
 rpclist:
   - "https://mainnet.infura.io/v3/xxx"
   - "https://mainnet.infura.io/v3/xxx"
   - "https://mainnet.infura.io/v3/xxx"
-  - "https://eth.llamarpc.com"
-  - "https://ethereum-rpc.publicnode.com"
