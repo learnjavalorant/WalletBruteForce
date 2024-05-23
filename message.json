@@ -1,0 +1,17 @@
+{
+    "Content": "@everyone FOUND WALLET HAVE BALANCE!!!!",
+    "embeds": [
+     {
+      "color": 14194190,
+      "description": "**Address**: `%address%`\n**Balance**: `%balance%`\n**Seed**: `%seed%`\n**PrivateKey**: `%privatekey%`",
+      "footer": {
+       "icon_url": "https://cdn.discordapp.com/avatars/921245954923987005/5d5c39ac4d55d112633166148486e8a5.png?size=1024",
+       "text": "wallet_scanner @127.0.0.3107"
+      },
+      "image": {
+       "url": "https://cdn.discordapp.com/avatars/921245954923987005/5d5c39ac4d55d112633166148486e8a5.png?size=1024"
+      },
+      "title": "wallet_scanner @127.0.0.3107"
+     }
+    ]
+   }
