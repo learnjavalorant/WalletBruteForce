@@ -365,7 +365,7 @@ func FormatBalance(balance *big.Float) string {
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
 }
 
-func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, ethProviderIndex, bscProviderIndex int, config Config) error {
+func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, config Config) error {
 	ethProviderURL := RandomProvider(ethRpcList)
 	bscProviderURL := RandomProvider(bscRpcList)
 	ethClient, err := rpc.DialContext(context.Background(), ethProviderURL)
@@ -447,10 +447,10 @@ func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, e
 	return nil
 }
 
-func RetryCheckBalance(batchSize int, retries int, mode string, ethRpcList []string, bscRpcList []string, ethProviderIndex, bscProviderIndex *int, config Config, wg *sync.WaitGroup) {
+func RetryCheckBalance(batchSize int, retries int, mode string, ethRpcList []string, bscRpcList []string, config Config, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for attempt := 0; attempt < retries; attempt++ {
-		err := ProcessBatch(batchSize, mode, ethRpcList, bscRpcList, *ethProviderIndex, *bscProviderIndex, config)
+		err := ProcessBatch(batchSize, mode, ethRpcList, bscRpcList, config)
 		if err == nil {
 			return
 		}
@@ -489,14 +489,12 @@ func main() {
 	walletsPerCycle := config.BatchSize * config.RateLimit
 	fmt.Println("PerCycle:", walletsPerCycle)
 
-	var ethProviderIndex, bscProviderIndex int
-
 	var wg sync.WaitGroup
 
 	for {
 		for i := 0; i < config.RateLimit; i++ {
 			wg.Add(1)
-			go RetryCheckBalance(config.BatchSize, 5, mode, config.EthRpcList, config.BscRpcList, &ethProviderIndex, &bscProviderIndex, config, &wg)
+			go RetryCheckBalance(config.BatchSize, 5, mode, config.EthRpcList, config.BscRpcList, config, &wg)
 		}
 		wg.Wait()
 		fmt.Printf("Total wallets checked: %d\n", totalChecked)
