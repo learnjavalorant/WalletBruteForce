@@ -12,11 +12,16 @@ t.me/liburx`
 #HOW TO USE
 1. ./LIBURX_VER.exe --mode random12seed (MODE: random12seed and randomprivatekey - default: random12seed)
 
-
 #Features:
 1. ETH CHAIN ✅
 2. BSC CHAIN ✅
 3. BTC (maybe) ❌
+
+#RPC:
+1. https://chainlist.org/chain/1
+2. https://www.ankr.com/rpc/projects/
+3. https://app.infura.io/
+4. https://www.alchemy.com/
 
 ![image](https://github.com/learnjavalorant/WalletBruteForce/assets/93646171/efac9bf1-f35c-41a4-9f0f-29ed34f0a2cd)
 
