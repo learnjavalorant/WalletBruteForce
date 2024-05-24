@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
@@ -216,12 +217,14 @@ func loadConfig(filename string) (Config, error) {
 
 var totalChecked int
 
-func RandomProvider(apiKeys []string, currentProviderIndex *int) string {
+func RandomProvider(apiKeys []string) string {
 	if len(apiKeys) == 0 {
+		log.Println("No API keys provided.")
 		return ""
 	}
-	provider := apiKeys[*currentProviderIndex]
-	*currentProviderIndex = (*currentProviderIndex + 1) % len(apiKeys)
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(apiKeys))
+	provider := apiKeys[randomIndex]
 	return provider
 }
 
@@ -362,9 +365,9 @@ func FormatBalance(balance *big.Float) string {
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
 }
 
-func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, currentProviderIndex *int, config Config) error {
-	ethProviderURL := RandomProvider(ethRpcList, currentProviderIndex)
-	bscProviderURL := RandomProvider(bscRpcList, currentProviderIndex)
+func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, ethProviderIndex, bscProviderIndex int, config Config) error {
+	ethProviderURL := RandomProvider(ethRpcList)
+	bscProviderURL := RandomProvider(bscRpcList)
 	ethClient, err := rpc.DialContext(context.Background(), ethProviderURL)
 	if err != nil {
 		return err
@@ -444,10 +447,10 @@ func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, c
 	return nil
 }
 
-func RetryCheckBalance(batchSize int, retries int, mode string, ethRpcList []string, bscRpcList []string, currentProviderIndex *int, config Config, wg *sync.WaitGroup) {
+func RetryCheckBalance(batchSize int, retries int, mode string, ethRpcList []string, bscRpcList []string, ethProviderIndex, bscProviderIndex *int, config Config, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for attempt := 0; attempt < retries; attempt++ {
-		err := ProcessBatch(batchSize, mode, ethRpcList, bscRpcList, currentProviderIndex, config)
+		err := ProcessBatch(batchSize, mode, ethRpcList, bscRpcList, *ethProviderIndex, *bscProviderIndex, config)
 		if err == nil {
 			return
 		}
@@ -468,6 +471,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
+	fmt.Println(config.EthRpcList)
+	fmt.Println(config.BscRpcList)
 
 	fmt.Println("Supported Chains:")
 	if config.ETHChain {
@@ -483,13 +488,15 @@ func main() {
 
 	walletsPerCycle := config.BatchSize * config.RateLimit
 	fmt.Println("PerCycle:", walletsPerCycle)
+
+	var ethProviderIndex, bscProviderIndex int
+
 	var wg sync.WaitGroup
-	CurrentProvider := 0
 
 	for {
 		for i := 0; i < config.RateLimit; i++ {
 			wg.Add(1)
-			go RetryCheckBalance(config.BatchSize, 5, mode, config.EthRpcList, config.BscRpcList, &CurrentProvider, config, &wg)
+			go RetryCheckBalance(config.BatchSize, 5, mode, config.EthRpcList, config.BscRpcList, &ethProviderIndex, &bscProviderIndex, config, &wg)
 		}
 		wg.Wait()
 		fmt.Printf("Total wallets checked: %d\n", totalChecked)
