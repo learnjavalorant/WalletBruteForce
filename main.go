@@ -422,7 +422,7 @@ func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, c
 				}
 			}
 		} else {
-			entry := fmt.Sprintf("❌ %s | ETH: %s | BSC: %s | %s | %s\n", addresses[i], ethBalanceStr, bnbBalanceStr, privateKeys[i], mode)
+			entry := fmt.Sprintf("❌ %s | ETH: %s | BNB: %s | %s | %s\n", addresses[i], ethBalanceStr, bnbBalanceStr, privateKeys[i], mode)
 			fmt.Print(entry)
 			if config.Log0Wallet {
 				file, err := os.OpenFile("0wallets.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
