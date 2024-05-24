@@ -18,10 +18,11 @@ t.me/liburx`
 3. BTC (maybe) ❌
 
 #RPC:
-1. https://chainlist.org/chain/1
-2. https://www.ankr.com/rpc/projects/
-3. https://app.infura.io/
-4. https://www.alchemy.com/
+1. https://chainlist.org/chain/1 (ETH)
+2. https://www.ankr.com/rpc/projects/ (ETH)
+3. https://app.infura.io/ (ETH)
+4. https://www.alchemy.com/ (ETH)
+5. https://chainlist.org/chain/56 (BSC)
 
 ![image](https://github.com/learnjavalorant/WalletBruteForce/assets/93646171/efac9bf1-f35c-41a4-9f0f-29ed34f0a2cd)
 
