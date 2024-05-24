@@ -1,5 +1,5 @@
 # WalletBruteForce
-`LiburX BruteForce Wallet Software. V1.1 - Golang
+`LiburX BruteForce Wallet Software. V1.3 - Golang
 t.me/liburx`
 
 #update-log:
