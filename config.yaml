@@ -1,7 +1,11 @@
 batchSize: 10
-rateLimit: 100
+rateLimit: 1024
 sendWebhook: true
-Log0Wallets: true
-rpclist:
-- https://ethereum-rpc.publicnode.com
+Log0Wallets: false
+ETHChain: true
+BSCChain: true
+EthRpcList:
+  - https://ethereum-rpc.publicnode.com
+BscRpcList:
+  - https://bsc-dataseed1.binance.org
 #Use infura,ankr,... rpc
