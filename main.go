@@ -33,10 +33,6 @@ type Config struct {
 	Log0Wallet  bool     `yaml:"Log0Wallets"`
 }
 
-var (
-	config Config
-)
-
 type WebhookData struct {
 	Content string         `json:"content"`
 	Embeds  []WebhookEmbed `json:"embeds"`
@@ -291,7 +287,7 @@ func FormatBalance(balance *big.Float) string {
 	balanceStr := balance.Text('f', 18)
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
 }
-func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) error {
+func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, config Config) error {
 	providerURL := RandomProvider(apiKeys, currentProviderIndex)
 	client, err := rpc.DialContext(context.Background(), providerURL)
 	if err != nil {
@@ -354,10 +350,10 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int) er
 	return nil
 }
 
-func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProviderIndex *int, wg *sync.WaitGroup) {
+func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProviderIndex *int, config Config, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for attempt := 0; attempt < retries; attempt++ {
-		err := ProcessBatch(batchSize, apiKeys, currentProviderIndex)
+		err := ProcessBatch(batchSize, apiKeys, currentProviderIndex, config)
 		if err == nil {
 			return
 		}
@@ -368,7 +364,7 @@ func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProvider
 }
 
 func main() {
-	config, err := loadConfig("config.yml")
+	config, err := loadConfig("config.yaml")
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
@@ -384,7 +380,7 @@ func main() {
 	for {
 		for i := 0; i < RateLimit; i++ {
 			wg.Add(1)
-			go RetryCheckBalance(BatchSize, 5, RpcClient, &CurrentProvider, &wg)
+			go RetryCheckBalance(BatchSize, 5, RpcClient, &CurrentProvider, config, &wg)
 		}
 		wg.Wait()
 		fmt.Printf("Total wallets checked: %d\n", totalChecked)
