@@ -1,7 +1,9 @@
 # WalletBruteForce
 `LiburX BruteForce Wallet Software. V1.3 - Golang
 t.me/liburx`
+
 `MY ETH WALLET: 0xE39522e244dc17384057F3b952342Bc61fAc3107`
+
 #update-log:
 1. Add webhook notify
 2. UPDATE BNB CHAIN, new mode randomprivatekey
