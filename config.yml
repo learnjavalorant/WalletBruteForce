@@ -1,8 +1,0 @@
-batchSize: 10
-rateLimit: 5
-sendWebhook: false
-log0Wallet: false
-rpclist:
-  - "https://mainnet.infura.io/v3/xxx"
-  - "https://mainnet.infura.io/v3/xxx"
-  - "https://mainnet.infura.io/v3/xxx"
