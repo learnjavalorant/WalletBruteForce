@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -28,9 +30,12 @@ import (
 type Config struct {
 	BatchSize   int      `yaml:"batchSize"`
 	RateLimit   int      `yaml:"rateLimit"`
-	RpcList     []string `yaml:"rpclist"`
+	EthChain    bool     `yaml:"ethChain"`
+	BscChain    bool     `yaml:"bscChain"`
+	EthRpcList  []string `yaml:"ethRpcList"`
+	BscRpcList  []string `yaml:"bscRpcList"`
 	SendWebhook bool     `yaml:"sendWebhook"`
-	Log0Wallet  bool     `yaml:"Log0Wallets"`
+	Log0Wallet  bool     `yaml:"log0Wallets"`
 }
 
 type WebhookData struct {
@@ -81,7 +86,7 @@ func init() {
 		Embeds: []WebhookEmbed{
 			{
 				Title:       "wallet_scanner @127.0.0.3107",
-				Description: "**Address**: `%address%`\n**Balance**: `%balance%`\n**Seed**: `%seed%`\n**PrivateKey**: `%privatekey%`",
+				Description: "**Address**: `%address%`\n**Balance**: `%eth% | %bsc%`\n**Seed**: `%seed%`\n**PrivateKey**: `%privatekey%`",
 				Image: WImage{
 					URL: "https://cdn.discordapp.com/avatars/921245954923987005/5d5c39ac4d55d112633166148486e8a5.png?size=1024",
 				},
@@ -140,7 +145,8 @@ func init() {
 		fmt.Println("No valid webhooks found in file.")
 	}
 }
-func executeWebhookForWallet(walletAddress, walletBalance, walletPhrase, walletPrivateKey string) error {
+
+func executeWebhookForWallet(walletAddress, ethbalance, bnbbalance, walletPhrase, walletPrivateKey string) error {
 	for _, webhook := range webhooks {
 		if !webhook.Alive {
 			continue
@@ -150,7 +156,8 @@ func executeWebhookForWallet(walletAddress, walletBalance, walletPhrase, walletP
 		message := *ThongBaoMessage
 		for i := range message.Embeds {
 			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%address%", walletAddress)
-			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%balance%", walletBalance)
+			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%eth%", ethbalance)
+			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%bnb%", bnbbalance)
 			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%seed%", walletPhrase)
 			message.Embeds[i].Description = strings.ReplaceAll(message.Embeds[i].Description, "%privatekey%", walletPrivateKey)
 		}
@@ -210,38 +217,71 @@ func loadConfig(filename string) (Config, error) {
 var totalChecked int
 
 func RandomProvider(apiKeys []string, currentProviderIndex *int) string {
+	if len(apiKeys) == 0 {
+		return ""
+	}
 	provider := apiKeys[*currentProviderIndex]
 	*currentProviderIndex = (*currentProviderIndex + 1) % len(apiKeys)
 	return provider
 }
-func GenWallet() (string, string, string, error) {
-	entropy, err := bip39.NewEntropy(128)
-	if err != nil {
-		return "", "", "", err
-	}
-	mnemonic, err := bip39.NewMnemonic(entropy)
-	if err != nil {
-		return "", "", "", err
-	}
 
-	seed := bip39.NewSeed(mnemonic, "")
-	privateKey, err := crypto.ToECDSA(seed[:32])
-	if err != nil {
-		return "", "", "", err
-	}
-	address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-	privateKeyHex := hexutil.Encode(crypto.FromECDSA(privateKey))[2:]
+func GenWallet(mode string) (string, string, string, error) {
+	switch mode {
+	case "randomprivatekey":
+		privateKey, err := crypto.GenerateKey()
+		if err != nil {
+			return "", "", "", err
+		}
+		address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+		privateKeyBytes := crypto.FromECDSA(privateKey)
+		privateKeyHex := hex.EncodeToString(privateKeyBytes)
+		return address, "", privateKeyHex, nil
+	case "random12seed":
+		entropy, err := bip39.NewEntropy(128)
+		if err != nil {
+			return "", "", "", err
+		}
+		mnemonic, err := bip39.NewMnemonic(entropy)
+		if err != nil {
+			return "", "", "", err
+		}
 
-	return address, mnemonic, privateKeyHex, nil
+		seed := bip39.NewSeed(mnemonic, "")
+		privateKey, err := crypto.ToECDSA(seed[:32])
+		if err != nil {
+			return "", "", "", err
+		}
+		address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+		privateKeyHex := hexutil.Encode(crypto.FromECDSA(privateKey))[2:]
+		return address, mnemonic, privateKeyHex, nil
+	case "test":
+		privatekeytest := "0000000000000000000000000000000000000000000000000000000000000013"
+
+		privateKeyBytes, err := hex.DecodeString(privatekeytest)
+		if err != nil {
+			return "", "", "", err
+		}
+
+		privateKey, err := crypto.ToECDSA(privateKeyBytes)
+		if err != nil {
+			return "", "", "", err
+		}
+
+		address := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+		privateKeyHex := hex.EncodeToString(privateKeyBytes)
+		return address, "", privateKeyHex, nil
+	default:
+		return "", "", "", fmt.Errorf("unsupported mode: %s", mode)
+	}
 }
 
-func BatchWallets(batchSize int) ([]string, []string, []string, error) {
+func BatchWallets(batchSize int, mode string) ([]string, []string, []string, error) {
 	addresses := make([]string, batchSize)
 	mnemonics := make([]string, batchSize)
 	privateKeys := make([]string, batchSize)
 
 	for i := 0; i < batchSize; i++ {
-		address, mnemonic, privateKey, err := GenWallet()
+		address, mnemonic, privateKey, err := GenWallet(mode)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -253,62 +293,115 @@ func BatchWallets(batchSize int) ([]string, []string, []string, error) {
 	return addresses, mnemonics, privateKeys, nil
 }
 
-func checkBalances(client *rpc.Client, addresses []string) ([]*big.Float, error) {
+func checkBalances(ethClient *rpc.Client, bscClient *rpc.Client, addresses []string, ethChain, bscChain bool) ([]*big.Float, []*big.Float, error) {
 	batchSize := len(addresses)
-	batchElems := make([]rpc.BatchElem, batchSize)
+	ethBalances := make([]*big.Float, batchSize)
+	bscBalances := make([]*big.Float, batchSize)
 
-	for i, address := range addresses {
-		batchElems[i] = rpc.BatchElem{
-			Method: "eth_getBalance",
-			Args:   []interface{}{address, "latest"},
-			Result: new(string),
+	if ethChain {
+		batchElemsEth := make([]rpc.BatchElem, batchSize)
+		for i, address := range addresses {
+			batchElemsEth[i] = rpc.BatchElem{
+				Method: "eth_getBalance",
+				Args:   []interface{}{address, "latest"},
+				Result: new(string),
+			}
+		}
+		err := ethClient.BatchCallContext(context.Background(), batchElemsEth)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, elem := range batchElemsEth {
+			if elem.Error != nil {
+				return nil, nil, elem.Error
+			}
+			balanceStr := *(elem.Result.(*string))
+			balance := new(big.Int)
+			balance.SetString(balanceStr[2:], 16)
+			ethBalances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
+		}
+	} else {
+		for i := range ethBalances {
+			ethBalances[i] = big.NewFloat(0)
 		}
 	}
 
-	err := client.BatchCallContext(context.Background(), batchElems)
-	if err != nil {
-		return nil, err
-	}
-
-	balances := make([]*big.Float, batchSize)
-	for i, elem := range batchElems {
-		if elem.Error != nil {
-			return nil, elem.Error
+	if bscChain {
+		batchElemsBsc := make([]rpc.BatchElem, batchSize)
+		for i, address := range addresses {
+			batchElemsBsc[i] = rpc.BatchElem{
+				Method: "eth_getBalance",
+				Args:   []interface{}{address, "latest"},
+				Result: new(string),
+			}
 		}
-		balanceStr := *(elem.Result.(*string))
-		balance := new(big.Int)
-		balance.SetString(balanceStr[2:], 16)
-		balances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
+		err := bscClient.BatchCallContext(context.Background(), batchElemsBsc)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, elem := range batchElemsBsc {
+			if elem.Error != nil {
+				return nil, nil, elem.Error
+			}
+			balanceStr := *(elem.Result.(*string))
+			balance := new(big.Int)
+			balance.SetString(balanceStr[2:], 16)
+			bscBalances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
+		}
+	} else {
+		for i := range bscBalances {
+			bscBalances[i] = big.NewFloat(0)
+		}
 	}
 
-	return balances, nil
+	return ethBalances, bscBalances, nil
 }
+
 func FormatBalance(balance *big.Float) string {
 	balanceStr := balance.Text('f', 18)
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
 }
-func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, config Config) error {
-	providerURL := RandomProvider(apiKeys, currentProviderIndex)
-	client, err := rpc.DialContext(context.Background(), providerURL)
+
+func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, currentProviderIndex *int, config Config) error {
+	ethProviderURL := RandomProvider(ethRpcList, currentProviderIndex)
+	bscProviderURL := RandomProvider(bscRpcList, currentProviderIndex)
+	ethClient, err := rpc.DialContext(context.Background(), ethProviderURL)
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer ethClient.Close()
 
-	addresses, mnemonics, privateKeys, err := BatchWallets(batchSize)
+	bscClient, err := rpc.DialContext(context.Background(), bscProviderURL)
+	if err != nil {
+		return err
+	}
+	defer bscClient.Close()
+
+	addresses, mnemonics, privateKeys, err := BatchWallets(batchSize, mode)
 	if err != nil {
 		return err
 	}
 
-	balances, err := checkBalances(client, addresses)
+	ethBalances, bscBalances, err := checkBalances(ethClient, bscClient, addresses, config.EthChain, config.BscChain)
 	if err != nil {
 		return err
 	}
 
-	for i, balance := range balances {
-		FormatBalance := FormatBalance(balance)
-		if balance.Cmp(big.NewFloat(0)) > 0 {
-			entry := fmt.Sprintf("✅ %s | %s | %s\n", addresses[i], FormatBalance, mnemonics[i])
+	for i, ethBalance := range ethBalances {
+		bscBalance := bscBalances[i]
+		ethBalanceStr := FormatBalance(ethBalance)
+		bnbBalanceStr := FormatBalance(bscBalance)
+
+		if ethBalance.Cmp(big.NewFloat(0)) > 0 || bscBalance.Cmp(big.NewFloat(0)) > 0 {
+			var entry string
+			if ethBalance.Cmp(big.NewFloat(0)) > 0 && bscBalance.Cmp(big.NewFloat(0)) > 0 {
+				entry = fmt.Sprintf("✅ %s | ETH: %s | BNB: %s | %s | %s | %s\n", addresses[i], ethBalanceStr, bnbBalanceStr, mnemonics[i], privateKeys[i], mode)
+			} else if ethBalance.Cmp(big.NewFloat(0)) > 0 {
+				entry = fmt.Sprintf("✅ %s | ETH: %s | BNB: OwO | %s | %s | %s\n", addresses[i], ethBalanceStr, mnemonics[i], privateKeys[i], mode)
+			} else {
+				entry = fmt.Sprintf("✅ %s | ETH: OwO | BNB: %s | %s | %s | %s\n", addresses[i], bnbBalanceStr, mnemonics[i], privateKeys[i], mode)
+			}
+
 			fmt.Print(entry)
 			file, err := os.OpenFile("result.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			if err != nil {
@@ -321,14 +414,15 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 				fmt.Println("Failed to write to result file:", err)
 				return err
 			}
+
 			if config.SendWebhook {
-				err := executeWebhookForWallet(addresses[i], FormatBalance, mnemonics[i], privateKeys[i])
+				err := executeWebhookForWallet(addresses[i], ethBalanceStr, bnbBalanceStr, mnemonics[i], privateKeys[i])
 				if err != nil {
 					fmt.Println("Failed to send webhook:", err)
 				}
 			}
 		} else {
-			entry := fmt.Sprintf("❌ %s | %s\n", addresses[i], FormatBalance)
+			entry := fmt.Sprintf("❌ %s | ETH: %s | BSC: %s | %s | %s\n", addresses[i], ethBalanceStr, bnbBalanceStr, privateKeys[i], mode)
 			fmt.Print(entry)
 			if config.Log0Wallet {
 				file, err := os.OpenFile("0wallets.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -350,10 +444,10 @@ func ProcessBatch(batchSize int, apiKeys []string, currentProviderIndex *int, co
 	return nil
 }
 
-func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProviderIndex *int, config Config, wg *sync.WaitGroup) {
+func RetryCheckBalance(batchSize int, retries int, mode string, ethRpcList []string, bscRpcList []string, currentProviderIndex *int, config Config, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for attempt := 0; attempt < retries; attempt++ {
-		err := ProcessBatch(batchSize, apiKeys, currentProviderIndex, config)
+		err := ProcessBatch(batchSize, mode, ethRpcList, bscRpcList, currentProviderIndex, config)
 		if err == nil {
 			return
 		}
@@ -363,24 +457,39 @@ func RetryCheckBalance(batchSize, retries int, apiKeys []string, currentProvider
 	fmt.Println("Failed after multiple retries.")
 }
 
+var mode string
+
+func init() {
+	flag.StringVar(&mode, "mode", "random12seed", "Mode Support: randomprivatekey or random12seed")
+	flag.Parse()
+}
 func main() {
 	config, err := loadConfig("config.yaml")
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	BatchSize := config.BatchSize
-	RateLimit := config.RateLimit
-	RpcClient := config.RpcList
+	fmt.Println("Supported Chains:")
+	if config.EthChain {
+		fmt.Println("- Ethereum")
+	}
+	if config.BscChain {
+		fmt.Println("- Binance Smart Chain")
+	}
+	fmt.Println("")
 
-	walletsPerCycle := BatchSize * RateLimit
+	fmt.Println("Waiting 5 sec...")
+	time.Sleep(5 * time.Second)
+
+	walletsPerCycle := config.BatchSize * config.RateLimit
 	fmt.Println("PerCycle:", walletsPerCycle)
 	var wg sync.WaitGroup
 	CurrentProvider := 0
+
 	for {
-		for i := 0; i < RateLimit; i++ {
+		for i := 0; i < config.RateLimit; i++ {
 			wg.Add(1)
-			go RetryCheckBalance(BatchSize, 5, RpcClient, &CurrentProvider, config, &wg)
+			go RetryCheckBalance(config.BatchSize, 5, mode, config.EthRpcList, config.BscRpcList, &CurrentProvider, config, &wg)
 		}
 		wg.Wait()
 		fmt.Printf("Total wallets checked: %d\n", totalChecked)
