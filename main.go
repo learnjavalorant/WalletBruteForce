@@ -30,10 +30,10 @@ import (
 type Config struct {
 	BatchSize   int      `yaml:"batchSize"`
 	RateLimit   int      `yaml:"rateLimit"`
-	EthChain    bool     `yaml:"ethChain"`
-	BscChain    bool     `yaml:"bscChain"`
-	EthRpcList  []string `yaml:"ethRpcList"`
-	BscRpcList  []string `yaml:"bscRpcList"`
+	ETHChain    bool     `yaml:"ETHChain"`
+	BSCChain    bool     `yaml:"BSCChain"`
+	EthRpcList  []string `yaml:"EthRpcList"`
+	BscRpcList  []string `yaml:"BscRpcList"`
 	SendWebhook bool     `yaml:"sendWebhook"`
 	Log0Wallet  bool     `yaml:"log0Wallets"`
 }
@@ -382,7 +382,7 @@ func ProcessBatch(batchSize int, mode string, ethRpcList, bscRpcList []string, c
 		return err
 	}
 
-	ethBalances, bscBalances, err := checkBalances(ethClient, bscClient, addresses, config.EthChain, config.BscChain)
+	ethBalances, bscBalances, err := checkBalances(ethClient, bscClient, addresses, config.ETHChain, config.BSCChain)
 	if err != nil {
 		return err
 	}
@@ -470,10 +470,10 @@ func main() {
 	}
 
 	fmt.Println("Supported Chains:")
-	if config.EthChain {
+	if config.ETHChain {
 		fmt.Println("- Ethereum")
 	}
-	if config.BscChain {
+	if config.BSCChain {
 		fmt.Println("- Binance Smart Chain")
 	}
 	fmt.Println("")
