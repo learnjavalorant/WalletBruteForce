@@ -1,6 +1,7 @@
 package main
 
 import (
+	"LiburX/Utils/logger/sl"
 	"bufio"
 	"bytes"
 	"context"
@@ -12,6 +13,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -296,32 +298,15 @@ func BatchWallets(batchSize int, mode string) ([]string, []string, []string, err
 	return addresses, mnemonics, privateKeys, nil
 }
 
-func checkBalances(ethClient *rpc.Client, bscClient *rpc.Client, addresses []string, ethChain, bscChain bool) ([]*big.Float, []*big.Float, error) {
+func checkBalances(ethClient, bscClient *rpc.Client, addresses []string, ethChain, bscChain bool) ([]*big.Float, []*big.Float, error) {
 	batchSize := len(addresses)
 	ethBalances := make([]*big.Float, batchSize)
 	bscBalances := make([]*big.Float, batchSize)
 
 	if ethChain {
-		batchElemsEth := make([]rpc.BatchElem, batchSize)
-		for i, address := range addresses {
-			batchElemsEth[i] = rpc.BatchElem{
-				Method: "eth_getBalance",
-				Args:   []interface{}{address, "latest"},
-				Result: new(string),
-			}
-		}
-		err := ethClient.BatchCallContext(context.Background(), batchElemsEth)
+		err := FetchBalances(ethClient, addresses, ethBalances)
 		if err != nil {
 			return nil, nil, err
-		}
-		for i, elem := range batchElemsEth {
-			if elem.Error != nil {
-				return nil, nil, elem.Error
-			}
-			balanceStr := *(elem.Result.(*string))
-			balance := new(big.Int)
-			balance.SetString(balanceStr[2:], 16)
-			ethBalances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
 		}
 	} else {
 		for i := range ethBalances {
@@ -330,26 +315,9 @@ func checkBalances(ethClient *rpc.Client, bscClient *rpc.Client, addresses []str
 	}
 
 	if bscChain {
-		batchElemsBsc := make([]rpc.BatchElem, batchSize)
-		for i, address := range addresses {
-			batchElemsBsc[i] = rpc.BatchElem{
-				Method: "eth_getBalance",
-				Args:   []interface{}{address, "latest"},
-				Result: new(string),
-			}
-		}
-		err := bscClient.BatchCallContext(context.Background(), batchElemsBsc)
+		err := FetchBalances(bscClient, addresses, bscBalances)
 		if err != nil {
 			return nil, nil, err
-		}
-		for i, elem := range batchElemsBsc {
-			if elem.Error != nil {
-				return nil, nil, elem.Error
-			}
-			balanceStr := *(elem.Result.(*string))
-			balance := new(big.Int)
-			balance.SetString(balanceStr[2:], 16)
-			bscBalances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
 		}
 	} else {
 		for i := range bscBalances {
@@ -360,6 +328,41 @@ func checkBalances(ethClient *rpc.Client, bscClient *rpc.Client, addresses []str
 	return ethBalances, bscBalances, nil
 }
 
+func FetchBalances(client *rpc.Client, addresses []string, balances []*big.Float) error {
+	batchSize := len(addresses)
+	batchElems := make([]rpc.BatchElem, batchSize)
+
+	for i, address := range addresses {
+		batchElems[i] = rpc.BatchElem{
+			Method: "eth_getBalance",
+			Args:   []interface{}{address, "latest"},
+			Result: new(string),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := client.BatchCallContext(ctx, batchElems)
+	if err != nil {
+		slog.Error("Failed to batch call context", sl.Err(err))
+		return err
+	}
+
+	for i, elem := range batchElems {
+		if elem.Error != nil {
+			slog.Error("Request error", slog.String("address", addresses[i]), slog.String("error", elem.Error.Error()))
+			balances[i] = big.NewFloat(0)
+			continue
+		}
+		balanceStr := *(elem.Result.(*string))
+		balance := new(big.Int)
+		balance.SetString(balanceStr[2:], 16)
+		balances[i] = new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18))
+	}
+
+	return nil
+}
 func FormatBalance(balance *big.Float) string {
 	balanceStr := balance.Text('f', 18)
 	return strings.TrimRight(strings.TrimRight(balanceStr, "0"), ".")
