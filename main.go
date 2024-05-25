@@ -485,12 +485,11 @@ func main() {
 		fmt.Println("- Binance Smart Chain")
 	}
 	fmt.Println("")
-
-	fmt.Println("Waiting 5 sec...")
-	time.Sleep(5 * time.Second)
-
 	walletsPerCycle := config.BatchSize * config.RateLimit
 	fmt.Println("PerCycle:", walletsPerCycle)
+	fmt.Println("")
+	fmt.Println("Waiting 3 sec...")
+	time.Sleep(3 * time.Second)
 
 	var wg sync.WaitGroup
 
